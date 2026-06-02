@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 import os
-import base64  # 🎯 用于将本地头像安全转化为内存 base64 字符串，避开沙箱跨域限制
+import base64
 
 # ==========================================
 # 1. 页面配置与标题
@@ -33,25 +33,37 @@ st.sidebar.header("💪 实时动力源")
 u_human = st.sidebar.slider("【实时推进】橹桨总出力 (kN)", 0, 60, 25, step=1)
 
 # ==========================================
-# 📸 核心路径逻辑：读取 static 目录下的 avatar.jpg 并安全转化为 Base64
+# 📸 核心路径重构：适配 Hugging Face /data/static 路由
 # ==========================================
 base_dir = os.path.dirname(__file__)
-# 🎯 锁定物理相对路径：根目录/static/avatar.jpg
-avatar_path = os.path.join(base_dir, "static", "avatar.jpg")
+
+# 🎯 定义两种可能的路径：1.云端持久化路径  2.本地备用路径
+hf_data_path = os.path.join("/data", "static", "avatar.jpg")
+local_backup_path = os.path.join(base_dir, "static", "avatar.jpg")
+
+avatar_path = ""
 avatar_base64 = ""
 
-if os.path.exists(avatar_path):
+# 智能探测：如果存在 HF 的 /data 挂载路径则优先读取，否则自动回退到项目根目录下的旧路径
+if os.path.exists(hf_data_path):
+    avatar_path = hf_data_path
+    st.sidebar.info("📂 已成功从云端 `/data/static/` 路径载入头像资产")
+elif os.path.exists(local_backup_path):
+    avatar_path = local_backup_path
+    st.sidebar.info("🏠 已从本地项目 `static/` 路径载入头像资产")
+else:
+    st.sidebar.warning("⚠️ 未能在 `/data/static/` 或本地目录下找到 `avatar.jpg`")
+
+# 如果路径探测成功，执行安全的内存 Base64 编码注入
+if avatar_path:
     try:
         with open(avatar_path, "rb") as img_file:
             encoded_string = base64.b64encode(img_file.read()).decode('utf-8')
-            # 拼装成前端内存直接可读的 Data URL 格式
             avatar_base64 = f"data:image/jpeg;base64,{encoded_string}"
     except Exception as e:
-        st.sidebar.error(f"⚠️ 头像图片读取失败: {e}")
-else:
-    st.sidebar.warning("⚠️ 未在当前 static 目录下找到 `avatar.jpg` 文件，随船头像将无法显示。")
+        st.sidebar.error(f"⚠️ 头像数据流转 Base64 失败: {e}")
 
-# 将图片数据作为底层通道参数，直接注入数据网桥
+# 将解算好的内存头像参数通过网桥下发
 current_params = {
     "w_river": w_river,
     "v_river": v_river,
@@ -61,7 +73,7 @@ current_params = {
     "sail_raised": sail_raised,
     "u_human": u_human,
     "reset_trigger": reset_trigger,
-    "avatar_data": avatar_base64  # 🎯 焊死内存数据通道
+    "avatar_data": avatar_base64  
 }
 
 # ==========================================
@@ -96,17 +108,16 @@ html_multi_file_code = f"""
     <div id="py-bridge" data-params='{json.dumps(current_params)}' style="display:none;"></div>
 
     <script>
-        // 跨文件共享基础变量前置定义
         let baseWidth = 900;
         let baseHeight = 1820;
 
-        // 【严格加载顺序】：1. 先声明并执行完物理计算逻辑，把常量锁死进 window
+        // 加载物理场核心
         {p5_physics_js}
 
-        // 【严格加载顺序】：2. 物理类在顶层全局注册完毕后，再拉起图形分层核心
+        // 加载分层图形内核
         {p5_sketch_js}
 
-        // 会话级网桥轮询
+        // 定时轮桥传输
         setInterval(() => {{
             let bridge = document.getElementById("py-bridge");
             if(bridge) {{
@@ -119,5 +130,4 @@ html_multi_file_code = f"""
 </html>
 """
 
-# 高度外壳直接放大到 1950，杜绝一切由于底部截断引起的公式隐藏！
 components.html(html_multi_file_code, height=1950, scrolling=False)
