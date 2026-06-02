@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 import os
-import base64  # 🎯 新增：用于将本地头像转化为内存 base64 字符串
+import base64  # 🎯 用于将本地头像安全转化为内存 base64 字符串，避开沙箱跨域限制
 
 # ==========================================
 # 1. 页面配置与标题
@@ -33,24 +33,25 @@ st.sidebar.header("💪 实时动力源")
 u_human = st.sidebar.slider("【实时推进】橹桨总出力 (kN)", 0, 60, 25, step=1)
 
 # ==========================================
-# 📸 核心微调：读取同级目录下的 avatar.jpg 并安全转化为 Base64
+# 📸 核心路径逻辑：读取 static 目录下的 avatar.jpg 并安全转化为 Base64
 # ==========================================
 base_dir = os.path.dirname(__file__)
-avatar_path = os.path.join(base_dir, "avatar.jpg")
+# 🎯 锁定物理相对路径：根目录/static/avatar.jpg
+avatar_path = os.path.join(base_dir, "static", "avatar.jpg")
 avatar_base64 = ""
 
 if os.path.exists(avatar_path):
     try:
         with open(avatar_path, "rb") as img_file:
             encoded_string = base64.b64encode(img_file.read()).decode('utf-8')
-            # 拼装成前端 img 标签和 p5.js loadImage 直接可读的 Data URL 格式
+            # 拼装成前端内存直接可读的 Data URL 格式
             avatar_base64 = f"data:image/jpeg;base64,{encoded_string}"
     except Exception as e:
         st.sidebar.error(f"⚠️ 头像图片读取失败: {e}")
 else:
-    st.sidebar.warning("⚠️ 未在当前目录下找到 `avatar.jpg` 文件，随船头像将无法显示。")
+    st.sidebar.warning("⚠️ 未在当前 static 目录下找到 `avatar.jpg` 文件，随船头像将无法显示。")
 
-# 将图片数据作为参数直接注入数据网桥
+# 将图片数据作为底层通道参数，直接注入数据网桥
 current_params = {
     "w_river": w_river,
     "v_river": v_river,
@@ -60,7 +61,7 @@ current_params = {
     "sail_raised": sail_raised,
     "u_human": u_human,
     "reset_trigger": reset_trigger,
-    "avatar_data": avatar_base64  # 🎯 焊死数据通道，直接下发到前端内存
+    "avatar_data": avatar_base64  # 🎯 焊死内存数据通道
 }
 
 # ==========================================
