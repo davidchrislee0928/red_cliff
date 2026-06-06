@@ -1,13 +1,16 @@
 ---
-title: Red Cliff Boat Fluid Dynamic
-emoji: 🏹
-colorFrom: blue
-colorTo: indigo
-sdk: streamlit
-sdk_version: "1.35.0"
+title: red_cliff
+emoji: 🏰
+colorFrom: red
+colorTo: blue
+sdk: streamlit # 或者是 gradio / static，根据你的项目而定
 app_file: app.py
 pinned: false
 ---
 
-# 🏹 赤壁之战：黄盖火攻多物理场时序级仿真器
-基于 Streamlit 与 p5.js 解耦构建的古战场流体力学模拟沙盘。
+# Red Cliff (赤壁项目)
+
+这是一个同时托管在 GitHub 和 Hugging Face 的项目。
+
+## 项目简介
+这里可以写你的项目介绍、运行方法等...
