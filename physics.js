@@ -53,8 +53,8 @@ class WarShip {
         let fLiftMag = 0;
 
         // 3. 视风与风帆空气动力学解算
-        let vWindX = p.v_wind * cos(radians(315));
-        let vWindY = p.v_wind * sin(radians(315));
+        let vWindX = p.v_wind * cos(radians(135));
+        let vWindY = p.v_wind * sin(radians(135));
         let vAppWindX = vWindX - this.vel.x;
         let vAppWindY = vWindY - this.vel.y;
         let vAppWind = sqrt(vAppWindX * vAppWindX + vAppWindY * vAppWindY);
