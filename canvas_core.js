@@ -1,5 +1,5 @@
 /**
- * 🧱 canvas_core.js - 核心数据生命周期、全局拦截器与时序大循环时钟（Windows 本地 Fetch 起跑熔断版）
+ * 🧱 canvas_core.js - 核心数据生命周期、全局拦截器与时序大循环时钟（Windows 本地在途改装完美落锁版）
  */
 
 window.onerror = function(message, source, lineno, colno, error) {
@@ -72,34 +72,72 @@ function draw() {
     handleKeyboardAndMouseControls();
     p.sail_height = k_sailHeight; p.sail = k_sailAngle; p.rudder = k_rudderAngle; p.sail_raised = (k_sailHeight > 0);
 
-    // 战船保底实例化
-    if (p.reset_trigger || !ship) {
-        ship = new window.WarShip(2400, 0); simTime = 0; isExploded = false; isRecordLogged = false;
-        sessionStorage.setItem("chibi_sim_time", 0); sessionStorage.setItem("chibi_exploded", "false");
+    // ===================================================================
+    // 🌟【第一层防线：原生按钮清盘拦截】
+    // ===================================================================
+    if (p.reset_trigger) {
+        localStorage.clear();
+        sessionStorage.clear();
+        ship = new window.WarShip(2400, 0);
+        simTime = 0;
+        isExploded = false;
+        isRecordLogged = false;
         saveStateToStorage(2400, 0, 0, 0, radians(135));
+    }
+
+    // ===================================================================
+    // 🌟【第二层防线：在途换装无感复活锁】
+    // ===================================================================
+    if (ship === null) {
+        let localSavedX = localStorage.getItem("chibi_ship_x_lock");
+        // 核心检测：如果在途缓存有坐标，且不是手动点击了重置按钮，则强制原地继承状态复活，杜绝缩回原点
+        if (localSavedX && localSavedX !== "null" && !p.reset_trigger && localStorage.getItem("chibi_exploded_lock") !== "true") {
+            ship = new window.WarShip(parseFloat(localSavedX), parseFloat(localStorage.getItem("chibi_ship_y_lock")));
+            ship.vel.set(parseFloat(localStorage.getItem("session_ship_vx_lock")) || 0, parseFloat(localStorage.getItem("session_ship_vy_lock")) || 0);
+            ship.heading = parseFloat(localStorage.getItem("chibi_ship_heading_lock")) || radians(135);
+            simTime = parseFloat(localStorage.getItem("chibi_sim_time_lock")) || 0;
+            isExploded = false;
+            isRecordLogged = false;
+        } else {
+            // 真正属于纯净初始状态时，方允许在起点生成新实例
+            ship = new window.WarShip(2400, 0);
+            simTime = 0;
+            isExploded = false;
+            isRecordLogged = false;
+            saveStateToStorage(2400, 0, 0, 0, radians(135));
+        }
     }
 
     if (window.onChibiEquipExt) {
         window.onChibiEquipExt(ship, p);
     }
 
-    // 🌟【起跑分步控制器】：一进来 p.run_trigger 是 false，画面纯精致静态渲染，100% 拒绝任何加载卡死死机！
-    // 只有当点击控制台的“开始推演”按钮后，由于起跑状态拉起，才真正激活 30 倍速物理狂飙！
+    // 🌟【第三层防线：受控物理微分演进与高频实时备份】
     if (p.run_trigger && !isExploded) {
         ship.applyTruePhysics(p); 
         
-        let timeStepMultiplier = 1;
+        let timeStepMultiplier = 1; // 1倍速常规科学物理演进尺度
         ship.update((1 / 60) * timeStepMultiplier); 
+        
+        // 🔥 每一帧都高频固化当前状态至 localStorage 中，彻底对抗 iframe 重新挂载产生的状态蒸发
+        localStorage.setItem("chibi_ship_x_lock", ship.pos.x);
+        localStorage.setItem("chibi_ship_y_lock", ship.pos.y);
+        localStorage.setItem("session_ship_vx_lock", ship.vel.x);
+        localStorage.setItem("session_ship_vy_lock", ship.vel.y);
+        localStorage.setItem("chibi_ship_heading_lock", ship.heading);
+        localStorage.setItem("chibi_sim_time_lock", simTime);
+        localStorage.setItem("chibi_exploded_lock", "false");
         
         saveStateToStorage(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, ship.heading);
         
         if (ship.pos.y >= p.w_river) { 
             isExploded = true; 
             sessionStorage.setItem("chibi_exploded", "true"); 
+            localStorage.setItem("chibi_exploded_lock", "true");
         }
     }
 
-    // 🎯 核心改变：利用 Fetch 异步直通车回传。撞线瞬间将数据直接注入后台嵌入式 Flask 端口
+    // 异步 Fetch 直通网关回传
     if (isExploded && !isRecordLogged && simTime > 0.5) {
         isRecordLogged = true;
         let finalTimeStr = simTime.toFixed(2);
@@ -127,7 +165,9 @@ function draw() {
         window.onChibiRenderExt(p, ship, simTime, isExploded, riverParticles);
     }
     
-    if (p.run_trigger && !isExploded) { simTime += (1 / 60) ; } 
+    if (p.run_trigger && !isExploded) { 
+        simTime += (1 / 60); 
+    } 
 }
 
 function handleKeyboardAndMouseControls() {
